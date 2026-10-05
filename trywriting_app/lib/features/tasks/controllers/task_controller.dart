@@ -1,11 +1,13 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:trywriting_app/features/tasks/models/subtask_model.dart';
+import 'package:trywriting_app/features/tasks/models/task_comment_model.dart';
 import '../models/column_model.dart';
 import '../models/task_model.dart';
-import 'package:trywriting_app/features/tasks/models/task_comment_model.dart';
 
 class TaskController {
   final _supabase = Supabase.instance.client;
+
+  // --- COLUNAS ---
 
   // Busca as colunas do projeto ordenadas pela posição
   Future<List<ColumnModel>> fetchColumns(String projectId) async {
@@ -20,7 +22,7 @@ class TaskController {
         .toList();
   }
 
-  // Cria as 3 colunas padrão caso o projeto seja novo
+  // Cria as colunas padrão caso o projeto seja novo
   Future<void> createDefaultColumns(String projectId) async {
     final existingColumns = await fetchColumns(projectId);
     if (existingColumns.isNotEmpty) return;
@@ -37,13 +39,45 @@ class TaskController {
     await _supabase.from('columns').insert(defaultColumns);
   }
 
+  // Adiciona uma nova coluna ao projeto
+  Future<void> createColumn(String projectId, String title) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) throw Exception('Usuário não autenticado');
+
+    // Obtém o número total de colunas para definir a próxima posição
+    final existingColumns = await fetchColumns(projectId);
+    final nextPosition = existingColumns.length;
+
+    await _supabase.from('columns').insert({
+      'project_id': projectId,
+      'user_id': user.id,
+      'title': title,
+      'position': nextPosition,
+    });
+  }
+
+  // Renomeia uma coluna existente
+  Future<void> updateColumnTitle(String columnId, String newTitle) async {
+    await _supabase
+        .from('columns')
+        .update({'title': newTitle})
+        .eq('id', columnId);
+  }
+
+  // Elimina uma coluna
+  Future<void> deleteColumn(String columnId) async {
+    await _supabase.from('columns').delete().eq('id', columnId);
+  }
+
+  // --- TAREFAS ---
+
   // Escuta as tarefas do projeto em tempo real usando Supabase Realtime Stream
   Stream<List<TaskModel>> getTasksStream(String projectId) {
     return _supabase
         .from('tasks')
         .stream(primaryKey: ['id'])
         .eq('project_id', projectId)
-        .order('created_at', ascending: true) // Ordenando por data de criação
+        .order('created_at', ascending: true)
         .map((listOfMaps) =>
             listOfMaps.map((json) => TaskModel.fromJson(json)).toList());
   }
@@ -61,7 +95,7 @@ class TaskController {
     await _supabase.from('tasks').insert({
       'project_id': projectId,
       'column_id': columnId,
-      'user_id': user.id, // OBRIGATÓRIO PARA O SUPABASE RLS
+      'user_id': user.id,
       'title': title,
       'description': description,
       'created_at': DateTime.now().toIso8601String(),
@@ -77,11 +111,6 @@ class TaskController {
         .from('tasks')
         .update({'column_id': newColumnId})
         .eq('id', taskId);
-  }
-
-  // Apaga uma tarefa
-  Future<void> deleteTask(String taskId) async {
-    await _supabase.from('tasks').delete().eq('id', taskId);
   }
 
   // Atualiza os dados de uma tarefa existente
@@ -100,6 +129,11 @@ class TaskController {
     }).eq('id', taskId);
   }
 
+  // Apaga uma tarefa
+  Future<void> deleteTask(String taskId) async {
+    await _supabase.from('tasks').delete().eq('id', taskId);
+  }
+
   // Busca todos os perfis para a seleção do responsável
   Future<List<Map<String, dynamic>>> fetchProfiles() async {
     final response = await _supabase
@@ -109,6 +143,7 @@ class TaskController {
   }
 
   // --- SUBTAREFAS (CHECKLIST) ---
+
   Stream<List<SubtaskModel>> getSubtasksStream(String taskId) {
     return _supabase
         .from('subtasks')
@@ -136,25 +171,25 @@ class TaskController {
     await _supabase.from('subtasks').delete().eq('id', subtaskId);
   }
 
-  // Stream de comentários em tempo real para uma tarefa
-Stream<List<TaskCommentModel>> getCommentsStream(String taskId) {
-  return _supabase
-      .from('task_comments')
-      .stream(primaryKey: ['id'])
-      .eq('task_id', taskId)
-      .order('created_at', ascending: true)
-      .map((data) => data.map((json) => TaskCommentModel.fromJson(json)).toList());
-}
+  // --- COMENTÁRIOS ---
 
-// Criar um novo comentário
-Future<void> addComment({required String taskId, required String content}) async {
-  final user = _supabase.auth.currentUser;
-  if (user == null) return;
+  Stream<List<TaskCommentModel>> getCommentsStream(String taskId) {
+    return _supabase
+        .from('task_comments')
+        .stream(primaryKey: ['id'])
+        .eq('task_id', taskId)
+        .order('created_at', ascending: true)
+        .map((data) => data.map((json) => TaskCommentModel.fromJson(json)).toList());
+  }
 
-  await _supabase.from('task_comments').insert({
-    'task_id': taskId,
-    'user_id': user.id,
-    'content': content,
-  });
-}
+  Future<void> addComment({required String taskId, required String content}) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    await _supabase.from('task_comments').insert({
+      'task_id': taskId,
+      'user_id': user.id,
+      'content': content,
+    });
+  }
 }

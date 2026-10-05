@@ -43,6 +43,7 @@ dependencies:
   timezone: ^0.9.2
   flutter_launcher_icons: "^0.14.4"
   fl_chart: ^0.68.0
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:

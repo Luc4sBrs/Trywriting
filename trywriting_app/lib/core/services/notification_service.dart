@@ -26,13 +26,14 @@ class NotificationService {
 
   // Agendar uma notificação para a data limite da tarefa
   Future<void> scheduleTaskNotification({
-    required int id,
-    required String title,
-    required String body,
-    required DateTime scheduledDate,
-  }) async {
-    if (scheduledDate.isBefore(DateTime.now())) return;
+  required int id,
+  required String title,
+  required String body,
+  required DateTime scheduledDate,
+}) async {
+  if (scheduledDate.isBefore(DateTime.now())) return;
 
+  try {
     await _notificationsPlugin.zonedSchedule(
       id,
       title,
@@ -48,11 +49,16 @@ class NotificationService {
         ),
         iOS: DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      // Mude para inexact para ignorar restrições de permissão do Android 12+
+      androidScheduleMode: AndroidScheduleMode.inexact,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
+  } catch (e) {
+    // Evita crash caso o sistema operacional bloqueie a permissão de alarme
+    print("Erro ao agendar notificação: $e");
   }
+}
 
   // Cancelar lembrete
   Future<void> cancelNotification(int id) async {

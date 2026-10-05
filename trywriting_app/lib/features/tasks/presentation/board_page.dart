@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:trywriting_app/config/app_theme.dart';
 import 'package:trywriting_app/core/services/notification_service.dart';
 import 'package:trywriting_app/shared/widgets/shimmer_loading.dart';
@@ -29,7 +30,7 @@ class _BoardPageState extends State<BoardPage> {
   // Estados de Pesquisa e Filtros
   bool _isSearching = false;
   String _searchQuery = '';
-  String? _selectedPriorityFilter; // 'Baixa', 'Média', 'Alta' ou null (todas)
+  String? _selectedPriorityFilter;
 
   @override
   void initState() {
@@ -41,13 +42,7 @@ class _BoardPageState extends State<BoardPage> {
   Future<void> _initBoard() async {
     try {
       await _taskController.createDefaultColumns(widget.projectId);
-      final columns = await _taskController.fetchColumns(widget.projectId);
-      if (mounted) {
-        setState(() {
-          _columns = columns;
-          _isLoadingColumns = false;
-        });
-      }
+      await _reloadColumns();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -57,6 +52,122 @@ class _BoardPageState extends State<BoardPage> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _reloadColumns() async {
+    final columns = await _taskController.fetchColumns(widget.projectId);
+    if (mounted) {
+      setState(() {
+        _columns = columns;
+        _isLoadingColumns = false;
+      });
+    }
+  }
+
+  // DIÁLOGO PARA CRIAR NOVA COLUNA
+  void _showAddColumnDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nova Coluna'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nome da Coluna',
+            hintText: 'Ex: Em Revisão, QA, Aprovado',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final title = controller.text.trim();
+              if (title.isNotEmpty) {
+                await _taskController.createColumn(widget.projectId, title);
+                await _reloadColumns();
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('Criar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // DIÁLOGO PARA EDITAR NOME DA COLUNA
+  void _showEditColumnDialog(ColumnModel column) {
+    final controller = TextEditingController(text: column.title);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar Coluna'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nome da Coluna'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newTitle = controller.text.trim();
+              if (newTitle.isNotEmpty && newTitle != column.title) {
+                await _taskController.updateColumnTitle(column.id, newTitle);
+                await _reloadColumns();
+              }
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ELIMINAR COLUNA
+  Future<void> _deleteColumn(ColumnModel column, int taskCount) async {
+    if (taskCount > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não é possível eliminar colunas com tarefas. Move ou apaga as tarefas primeiro.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar Coluna'),
+        content: Text('Tem a certeza que deseja eliminar a coluna "${column.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _taskController.deleteColumn(column.id);
+      await _reloadColumns();
     }
   }
 
@@ -177,6 +288,20 @@ class _BoardPageState extends State<BoardPage> {
     );
   }
 
+  Color _getPriorityColor(String? priority) {
+    switch (priority?.toLowerCase()) {
+      case 'alta':
+        return Colors.redAccent;
+      case 'média':
+      case 'media':
+        return Colors.orangeAccent;
+      case 'baixa':
+        return Colors.blueAccent;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -280,7 +405,6 @@ class _BoardPageState extends State<BoardPage> {
 
                       var allTasks = snapshot.data!;
 
-                      // FILTRAGEM POR BUSCA E PRIORIDADE
                       if (_searchQuery.isNotEmpty) {
                         allTasks = allTasks.where((t) {
                           final titleMatch = t.title.toLowerCase().contains(_searchQuery);
@@ -298,8 +422,27 @@ class _BoardPageState extends State<BoardPage> {
                       return ListView.builder(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.all(16),
-                        itemCount: _columns.length,
+                        itemCount: _columns.length + 1, // +1 para o botão de Adicionar Coluna
                         itemBuilder: (context, index) {
+                          // CARD DE ADICIONAR NOVA COLUNA NO FINAL
+                          if (index == _columns.length) {
+                            return Container(
+                              width: 200,
+                              margin: const EdgeInsets.only(right: 16),
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.all(16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.view_column_outlined),
+                                label: const Text('Nova Coluna'),
+                                onPressed: _showAddColumnDialog,
+                              ),
+                            );
+                          }
+
                           final column = _columns[index];
                           final columnTasks = allTasks.where((t) => t.columnId == column.id).toList();
 
@@ -314,7 +457,7 @@ class _BoardPageState extends State<BoardPage> {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Movidi "${details.data.title}" para ${column.title}'),
+                                    content: Text('Movido "${details.data.title}" para ${column.title}'),
                                     duration: const Duration(seconds: 2),
                                   ),
                                 );
@@ -336,18 +479,54 @@ class _BoardPageState extends State<BoardPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
+                                    // CABEÇALHO DA COLUNA COM MENU
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text(
-                                            '${column.title} (${columnTasks.length})',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                          Expanded(
+                                            child: Text(
+                                              '${column.title} (${columnTasks.length})',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                            ),
                                           ),
                                           IconButton(
                                             icon: const Icon(Icons.add, size: 20),
                                             onPressed: () => _showAddTaskDialog(column.id, column.title),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
+                                            onSelected: (val) {
+                                              if (val == 'edit') {
+                                                _showEditColumnDialog(column);
+                                              } else if (val == 'delete') {
+                                                _deleteColumn(column, columnTasks.length);
+                                              }
+                                            },
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem(
+                                                value: 'edit',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.edit, size: 16),
+                                                    SizedBox(width: 8),
+                                                    Text('Editar nome'),
+                                                  ],
+                                                ),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'delete',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.delete, size: 16, color: Colors.redAccent),
+                                                    SizedBox(width: 8),
+                                                    Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -362,19 +541,19 @@ class _BoardPageState extends State<BoardPage> {
                                           return LongPressDraggable<TaskModel>(
                                             data: task,
                                             feedback: Material(
-                                              elevation: 6,
+                                              elevation: 8,
                                               borderRadius: BorderRadius.circular(12),
-                                              child: SizedBox(
-                                                width: 270,
-                                                child: Card(
-                                                  child: ListTile(
-                                                    title: Text(task.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                                  ),
+                                              color: Colors.transparent,
+                                              child: Transform.rotate(
+                                                angle: 0.05,
+                                                child: SizedBox(
+                                                  width: 270,
+                                                  child: _buildTaskCardContent(task, isDark),
                                                 ),
                                               ),
                                             ),
                                             childWhenDragging: Opacity(
-                                              opacity: 0.3,
+                                              opacity: 0.2,
                                               child: _buildTaskCard(task, isDark, column),
                                             ),
                                             child: _buildTaskCard(task, isDark, column),
@@ -398,47 +577,200 @@ class _BoardPageState extends State<BoardPage> {
   }
 
   Widget _buildTaskCard(TaskModel task, bool isDark, ColumnModel currentColumn) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        onTap: () => _showEditTaskDialog(task),
-        title: Text(task.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (task.description != null && task.description!.isNotEmpty)
-              Text(
-                task.description!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
+    return Dismissible(
+      key: Key(task.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Eliminar Tarefa'),
+            content: Text('Tem a certeza que deseja eliminar "${task.title}"?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
               ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: isDark ? Colors.white54 : Colors.black54),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    task.priority?.toUpperCase() ?? 'MÉDIA',
-                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                if (task.dueDate != null) ...[
-                  const SizedBox(width: 8),
-                  Icon(Icons.calendar_today, size: 12, color: isDark ? Colors.white54 : Colors.black54),
-                  const SizedBox(width: 2),
-                  Text(
-                    '${task.dueDate!.day}/${task.dueDate!.month}',
-                    style: TextStyle(fontSize: 10, color: isDark ? Colors.white54 : Colors.black54),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                child: const Text('Eliminar'),
+              ),
+            ],
+          ),
+        );
+      },
+      onDismissed: (direction) async {
+        await _taskController.deleteTask(task.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Tarefa "${task.title}" eliminada')),
+          );
+        }
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.delete_outline, color: Colors.white, size: 24),
+      ),
+      child: _buildTaskCardContent(task, isDark),
+    );
+  }
+
+  Widget _buildTaskCardContent(TaskModel task, bool isDark) {
+    final priorityColor = _getPriorityColor(task.priority);
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () => _showEditTaskDialog(task),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (task.priority != null && task.priority!.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: priorityColor.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: priorityColor.withOpacity(0.5)),
+                      ),
+                      child: Text(
+                        task.priority!.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: priorityColor,
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+
+                  SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
+                      onSelected: (value) async {
+                        if (value == 'edit') {
+                          _showEditTaskDialog(task);
+                        } else if (value == 'delete') {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Eliminar Tarefa'),
+                              content: Text('Tem a certeza que deseja eliminar "${task.title}"?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('Cancelar'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                                  child: const Text('Eliminar'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            await _taskController.deleteTask(task.id);
+                          }
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 16),
+                              SizedBox(width: 8),
+                              Text('Editar', style: TextStyle(fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 16, color: Colors.redAccent),
+                              SizedBox(width: 8),
+                              Text('Eliminar', style: TextStyle(fontSize: 13, color: Colors.redAccent)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 6),
+
+              Text(
+                task.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+
+              if (task.description != null && task.description!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  task.description!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
               ],
-            ),
-          ],
+
+              if (task.dueDate != null) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 12,
+                      color: task.dueDate!.isBefore(DateTime.now())
+                          ? Colors.redAccent
+                          : Colors.grey,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      DateFormat('dd MMM').format(task.dueDate!),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: task.dueDate!.isBefore(DateTime.now())
+                            ? Colors.redAccent
+                            : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
