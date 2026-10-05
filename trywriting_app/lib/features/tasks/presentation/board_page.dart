@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:trywriting_app/config/app_theme.dart';
 import 'package:trywriting_app/core/services/notification_service.dart';
 import 'package:trywriting_app/shared/widgets/shimmer_loading.dart';
+
 import '../controllers/task_controller.dart';
 import '../models/column_model.dart';
 import '../models/task_model.dart';
@@ -139,7 +140,9 @@ class _BoardPageState extends State<BoardPage> {
     if (taskCount > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Não é possível eliminar colunas com tarefas. Move ou apaga as tarefas primeiro.'),
+          content: Text(
+            'Não é possível eliminar colunas com tarefas. Move ou apaga as tarefas primeiro.',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -150,7 +153,9 @@ class _BoardPageState extends State<BoardPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Eliminar Coluna'),
-        content: Text('Tem a certeza que deseja eliminar a coluna "${column.title}"?'),
+        content: Text(
+          'Tem a certeza que deseja eliminar a coluna "${column.title}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -200,24 +205,34 @@ class _BoardPageState extends State<BoardPage> {
                     children: [
                       TextFormField(
                         controller: titleController,
-                        decoration: const InputDecoration(labelText: 'Título da Tarefa'),
-                        validator: (value) => value == null || value.trim().isEmpty ? 'Informe o título' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Título da Tarefa',
+                        ),
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
+                            ? 'Informe o título'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: descriptionController,
-                        decoration: const InputDecoration(labelText: 'Descrição (opcional)'),
+                        decoration: const InputDecoration(
+                          labelText: 'Descrição (opcional)',
+                        ),
                         maxLines: 2,
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         value: selectedPriority,
-                        decoration: const InputDecoration(labelText: 'Prioridade'),
+                        decoration: const InputDecoration(
+                          labelText: 'Prioridade',
+                        ),
                         items: ['Baixa', 'Média', 'Alta'].map((p) {
                           return DropdownMenuItem(value: p, child: Text(p));
                         }).toList(),
                         onChanged: (val) {
-                          if (val != null) setDialogState(() => selectedPriority = val);
+                          if (val != null)
+                            setDialogState(() => selectedPriority = val);
                         },
                       ),
                       const SizedBox(height: 12),
@@ -264,12 +279,16 @@ class _BoardPageState extends State<BoardPage> {
                       projectId: widget.projectId,
                       columnId: columnId,
                       title: taskTitle,
-                      description: descriptionController.text.trim().isEmpty ? null : descriptionController.text.trim(),
+                      description: descriptionController.text.trim().isEmpty
+                          ? null
+                          : descriptionController.text.trim(),
                     );
 
                     if (selectedDueDate != null) {
                       await NotificationService().scheduleTaskNotification(
-                        id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+                        id: DateTime.now().millisecondsSinceEpoch.remainder(
+                          100000,
+                        ),
                         title: 'Lembrete de Tarefa',
                         body: 'A tarefa "$taskTitle" vence hoje!',
                         scheduledDate: selectedDueDate!,
@@ -333,7 +352,9 @@ class _BoardPageState extends State<BoardPage> {
             },
           ),
           IconButton(
-            icon: Icon(isDark ? Icons.wb_sunny_outlined : Icons.nightlight_round),
+            icon: Icon(
+              isDark ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+            ),
             tooltip: 'Alternar Tema',
             onPressed: () => AppTheme.toggleTheme(),
           ),
@@ -351,14 +372,16 @@ class _BoardPageState extends State<BoardPage> {
                   FilterChip(
                     label: const Text('Todas'),
                     selected: _selectedPriorityFilter == null,
-                    onSelected: (_) => setState(() => _selectedPriorityFilter = null),
+                    onSelected: (_) =>
+                        setState(() => _selectedPriorityFilter = null),
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
                     label: const Text('Alta'),
                     selected: _selectedPriorityFilter == 'Alta',
                     onSelected: (_) => setState(() {
-                      _selectedPriorityFilter = _selectedPriorityFilter == 'Alta' ? null : 'Alta';
+                      _selectedPriorityFilter =
+                          _selectedPriorityFilter == 'Alta' ? null : 'Alta';
                     }),
                   ),
                   const SizedBox(width: 8),
@@ -366,7 +389,8 @@ class _BoardPageState extends State<BoardPage> {
                     label: const Text('Média'),
                     selected: _selectedPriorityFilter == 'Média',
                     onSelected: (_) => setState(() {
-                      _selectedPriorityFilter = _selectedPriorityFilter == 'Média' ? null : 'Média';
+                      _selectedPriorityFilter =
+                          _selectedPriorityFilter == 'Média' ? null : 'Média';
                     }),
                   ),
                   const SizedBox(width: 8),
@@ -374,7 +398,8 @@ class _BoardPageState extends State<BoardPage> {
                     label: const Text('Baixa'),
                     selected: _selectedPriorityFilter == 'Baixa',
                     onSelected: (_) => setState(() {
-                      _selectedPriorityFilter = _selectedPriorityFilter == 'Baixa' ? null : 'Baixa';
+                      _selectedPriorityFilter =
+                          _selectedPriorityFilter == 'Baixa' ? null : 'Baixa';
                     }),
                   ),
                 ],
@@ -392,14 +417,16 @@ class _BoardPageState extends State<BoardPage> {
                 : StreamBuilder<List<TaskModel>>(
                     stream: _taskController.getTasksStream(widget.projectId),
                     builder: (context, snapshot) {
-                      if (snapshot.hasError) return Center(child: Text('Erro: ${snapshot.error}'));
+                      if (snapshot.hasError)
+                        return Center(child: Text('Erro: ${snapshot.error}'));
 
                       if (!snapshot.hasData) {
                         return ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.all(16),
                           itemCount: _columns.length,
-                          itemBuilder: (context, index) => const ColumnSkeleton(),
+                          itemBuilder: (context, index) =>
+                              const ColumnSkeleton(),
                         );
                       }
 
@@ -407,22 +434,34 @@ class _BoardPageState extends State<BoardPage> {
 
                       if (_searchQuery.isNotEmpty) {
                         allTasks = allTasks.where((t) {
-                          final titleMatch = t.title.toLowerCase().contains(_searchQuery);
-                          final descMatch = t.description?.toLowerCase().contains(_searchQuery) ?? false;
+                          final titleMatch = t.title.toLowerCase().contains(
+                            _searchQuery,
+                          );
+                          final descMatch =
+                              t.description?.toLowerCase().contains(
+                                _searchQuery,
+                              ) ??
+                              false;
                           return titleMatch || descMatch;
                         }).toList();
                       }
 
                       if (_selectedPriorityFilter != null) {
                         allTasks = allTasks
-                            .where((t) => t.priority?.toLowerCase() == _selectedPriorityFilter!.toLowerCase())
+                            .where(
+                              (t) =>
+                                  t.priority?.toLowerCase() ==
+                                  _selectedPriorityFilter!.toLowerCase(),
+                            )
                             .toList();
                       }
 
                       return ListView.builder(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.all(16),
-                        itemCount: _columns.length + 1, // +1 para o botão de Adicionar Coluna
+                        itemCount:
+                            _columns.length +
+                            1, // +1 para o botão de Adicionar Coluna
                         itemBuilder: (context, index) {
                           // CARD DE ADICIONAR NOVA COLUNA NO FINAL
                           if (index == _columns.length) {
@@ -444,10 +483,13 @@ class _BoardPageState extends State<BoardPage> {
                           }
 
                           final column = _columns[index];
-                          final columnTasks = allTasks.where((t) => t.columnId == column.id).toList();
+                          final columnTasks = allTasks
+                              .where((t) => t.columnId == column.id)
+                              .toList();
 
                           return DragTarget<TaskModel>(
-                            onWillAcceptWithDetails: (details) => details.data.columnId != column.id,
+                            onWillAcceptWithDetails: (details) =>
+                                details.data.columnId != column.id,
                             onAcceptWithDetails: (details) async {
                               await _taskController.moveTask(
                                 taskId: details.data.id,
@@ -457,7 +499,9 @@ class _BoardPageState extends State<BoardPage> {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Movido "${details.data.title}" para ${column.title}'),
+                                    content: Text(
+                                      'Movido "${details.data.title}" para ${column.title}',
+                                    ),
                                     duration: const Duration(seconds: 2),
                                   ),
                                 );
@@ -469,40 +513,67 @@ class _BoardPageState extends State<BoardPage> {
                                 margin: const EdgeInsets.only(right: 16),
                                 decoration: BoxDecoration(
                                   color: candidateData.isNotEmpty
-                                      ? (isDark ? Colors.white10 : Colors.black12)
-                                      : (isDark ? const Color(0xFF181818) : const Color(0xFFEFEFEF)),
+                                      ? (isDark
+                                            ? Colors.white10
+                                            : Colors.black12)
+                                      : (isDark
+                                            ? const Color(0xFF181818)
+                                            : const Color(0xFFEFEFEF)),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: isDark ? const Color(0xFF2E2E2E) : const Color(0xFFE0E0E0),
+                                    color: isDark
+                                        ? const Color(0xFF2E2E2E)
+                                        : const Color(0xFFE0E0E0),
                                   ),
                                 ),
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     // CABEÇALHO DA COLUNA COM MENU
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Expanded(
                                             child: Text(
                                               '${column.title} (${columnTasks.length})',
                                               overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                              ),
                                             ),
                                           ),
                                           IconButton(
-                                            icon: const Icon(Icons.add, size: 20),
-                                            onPressed: () => _showAddTaskDialog(column.id, column.title),
+                                            icon: const Icon(
+                                              Icons.add,
+                                              size: 20,
+                                            ),
+                                            onPressed: () => _showAddTaskDialog(
+                                              column.id,
+                                              column.title,
+                                            ),
                                           ),
                                           PopupMenuButton<String>(
-                                            icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
+                                            icon: const Icon(
+                                              Icons.more_vert,
+                                              size: 18,
+                                              color: Colors.grey,
+                                            ),
                                             onSelected: (val) {
                                               if (val == 'edit') {
                                                 _showEditColumnDialog(column);
                                               } else if (val == 'delete') {
-                                                _deleteColumn(column, columnTasks.length);
+                                                _deleteColumn(
+                                                  column,
+                                                  columnTasks.length,
+                                                );
                                               }
                                             },
                                             itemBuilder: (context) => [
@@ -520,9 +591,18 @@ class _BoardPageState extends State<BoardPage> {
                                                 value: 'delete',
                                                 child: Row(
                                                   children: [
-                                                    Icon(Icons.delete, size: 16, color: Colors.redAccent),
+                                                    Icon(
+                                                      Icons.delete,
+                                                      size: 16,
+                                                      color: Colors.redAccent,
+                                                    ),
                                                     SizedBox(width: 8),
-                                                    Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+                                                    Text(
+                                                      'Eliminar',
+                                                      style: TextStyle(
+                                                        color: Colors.redAccent,
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               ),
@@ -542,21 +622,33 @@ class _BoardPageState extends State<BoardPage> {
                                             data: task,
                                             feedback: Material(
                                               elevation: 8,
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                               color: Colors.transparent,
                                               child: Transform.rotate(
                                                 angle: 0.05,
                                                 child: SizedBox(
                                                   width: 270,
-                                                  child: _buildTaskCardContent(task, isDark),
+                                                  child: _buildTaskCardContent(
+                                                    task,
+                                                    isDark,
+                                                  ),
                                                 ),
                                               ),
                                             ),
                                             childWhenDragging: Opacity(
                                               opacity: 0.2,
-                                              child: _buildTaskCard(task, isDark, column),
+                                              child: _buildTaskCard(
+                                                task,
+                                                isDark,
+                                                column,
+                                              ),
                                             ),
-                                            child: _buildTaskCard(task, isDark, column),
+                                            child: _buildTaskCard(
+                                              task,
+                                              isDark,
+                                              column,
+                                            ),
                                           );
                                         },
                                       ),
@@ -576,7 +668,11 @@ class _BoardPageState extends State<BoardPage> {
     );
   }
 
-  Widget _buildTaskCard(TaskModel task, bool isDark, ColumnModel currentColumn) {
+  Widget _buildTaskCard(
+    TaskModel task,
+    bool isDark,
+    ColumnModel currentColumn,
+  ) {
     return Dismissible(
       key: Key(task.id),
       direction: DismissDirection.endToStart,
@@ -643,11 +739,16 @@ class _BoardPageState extends State<BoardPage> {
                 children: [
                   if (task.priority != null && task.priority!.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: priorityColor.withOpacity(0.18),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: priorityColor.withOpacity(0.5)),
+                        border: Border.all(
+                          color: priorityColor.withOpacity(0.5),
+                        ),
                       ),
                       child: Text(
                         task.priority!.toUpperCase(),
@@ -666,7 +767,11 @@ class _BoardPageState extends State<BoardPage> {
                     width: 24,
                     child: PopupMenuButton<String>(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
+                      icon: const Icon(
+                        Icons.more_vert,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
                       onSelected: (value) async {
                         if (value == 'edit') {
                           _showEditTaskDialog(task);
@@ -675,15 +780,20 @@ class _BoardPageState extends State<BoardPage> {
                             context: context,
                             builder: (context) => AlertDialog(
                               title: const Text('Eliminar Tarefa'),
-                              content: Text('Tem a certeza que deseja eliminar "${task.title}"?'),
+                              content: Text(
+                                'Tem a certeza que deseja eliminar "${task.title}"?',
+                              ),
                               actions: [
                                 TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
                                   child: const Text('Cancelar'),
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.pop(context, true),
-                                  style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.redAccent,
+                                  ),
                                   child: const Text('Eliminar'),
                                 ),
                               ],
@@ -709,9 +819,19 @@ class _BoardPageState extends State<BoardPage> {
                           value: 'delete',
                           child: Row(
                             children: [
-                              Icon(Icons.delete, size: 16, color: Colors.redAccent),
+                              Icon(
+                                Icons.delete,
+                                size: 16,
+                                color: Colors.redAccent,
+                              ),
                               SizedBox(width: 8),
-                              Text('Eliminar', style: TextStyle(fontSize: 13, color: Colors.redAccent)),
+                              Text(
+                                'Eliminar',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.redAccent,
+                                ),
+                              ),
                             ],
                           ),
                         ),

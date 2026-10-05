@@ -88,6 +88,7 @@ class TaskController {
     required String columnId,
     required String title,
     String? description,
+    String? label,
   }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) throw Exception('Usuário não autenticado');
@@ -98,6 +99,7 @@ class TaskController {
       'user_id': user.id,
       'title': title,
       'description': description,
+      'label': label,
       'created_at': DateTime.now().toIso8601String(),
     });
   }
@@ -118,12 +120,14 @@ class TaskController {
     required String taskId,
     required String title,
     String? description,
+    String? label,
     DateTime? dueDate,
     String? assignedTo,
   }) async {
     await _supabase.from('tasks').update({
       'title': title,
       'description': description,
+      'label': label,
       'due_date': dueDate?.toIso8601String(),
       'assigned_to': assignedTo,
     }).eq('id', taskId);
